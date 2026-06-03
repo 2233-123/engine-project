@@ -21,6 +21,7 @@ public class SeqScanOperator implements PhysicalOperator {
     private TableMeta tableMeta;
     private RecordFileHandle fileHandle;
     private Record currentRecord;
+    private RID currentRID;
 
     private int currentPageNum;
     private int currentSlotNum;
@@ -85,21 +86,23 @@ public class SeqScanOperator implements PhysicalOperator {
             return;
         try {
             if (hasNext()) { // Advance to the next record
-                RID rid = new RID(currentPageNum, currentSlotNum);
-                currentRecord = fileHandle.GetRecord(rid);
+                currentRID = new RID(currentPageNum, currentSlotNum);
+                currentRecord = fileHandle.GetRecord(currentRID);
                 currentSlotNum++;
                 if (currentSlotNum >= recordsPerPage) {
                     currentPageNum++;
                     currentSlotNum = 0;
                 }
                 // readonly
-                fileHandle.UnpinPageHandle(currentPageNum, false);
+                fileHandle.UnpinPageHandle(currentRID.pageNum, false);
             } else {
                 currentRecord = null;
+                currentRID = null;
             }
         } catch (DBException e) {
             e.printStackTrace(); // Handle exception properly
             currentRecord = null;
+            currentRID = null;
         }
     }
 
@@ -108,7 +111,7 @@ public class SeqScanOperator implements PhysicalOperator {
         if (!isOpen || currentRecord == null) {
             return null;
         }
-        return new TableTuple(tableName, tableMeta, currentRecord, new RID(this.currentPageNum, this.currentSlotNum - 1));
+        return new TableTuple(tableName, tableMeta, currentRecord, currentRID);
     }
 
     @Override
@@ -122,6 +125,7 @@ public class SeqScanOperator implements PhysicalOperator {
         }
         fileHandle = null;
         currentRecord = null;
+        currentRID = null;
         isOpen = false;
     }
 
